@@ -10,13 +10,23 @@ Author: Valentin Zamarin
 class Advertisement {
 
     public function __construct() {
-        add_filter('the_content', [$this, 'test_function']);
+        add_filter('the_content', [$this, 'insert_advertisement']);
     }
 
-    public function test_function(string $content): string {
-        $post_id = get_the_ID();
+    public function advertisement_code( int $id ) {
+        $ads_code = '';
 
-        $code = '<div>Нужный кусок</div>';
+        if (is_single() && wp_is_mobile()) :
+            $ads_code = '<div>mobile ads</div>';
+        elseif( is_single() && !wp_is_mobile() ) :
+            $ads_code = '<div>desktop ads</div>';
+        endif;
+
+        return $ads_code;
+    }
+
+    public function insert_advertisement(string $content): string {
+        $post_id = get_the_ID();
 
         $content_array = [];
 
@@ -24,35 +34,31 @@ class Advertisement {
         $paragraphs = explode($closing_p, $content );
         $middle = floor(count($paragraphs) / 2);
 
+        $count = 1;
+
         foreach ($paragraphs as $idx => $paragraph) :
-            $pos = strpos($paragraph, 'blockquote');
+            $pos = strpos($paragraph, '<blockquote>');
             if (
-                $pos === false
+                $pos !== false
             ) :
-                $paragraph = $paragraph;
+                $paragraph = $paragraph . '<div style="display: none">blockquote</div>';;
                 $content_array[] = $paragraph;
-            elseif(
-                $pos >= 5
-            ) :
-                $paragraph = $paragraph . '</blockquote>';
+            else :
+                if( $middle >= 7 && $idx == $count ) :
+                    $paragraph = $paragraph;
+                    $paragraph .= $this->advertisement_code( $post_id );
+                elseif( $idx == 1 && $middle < 7 ) :
+                    $paragraph = $paragraph;
+                    $paragraph .= $this->advertisement_code( $post_id );
+                else :
+                    $paragraph = $paragraph;
+                endif;
                 $content_array[] = $paragraph;
-            elseif(
-                $pos <= 3
-            ) :
-                $paragraph = str_replace( '<blockquote>', '', $paragraph );
-                $paragraph = $paragraph;
-                $content_array[] = $paragraph;
+                $count++;
             endif;
         endforeach;
 
-        if( $middle >= 7 ) {
-            $content_array[$middle] .= $code;
-        } else {
-            $content_array[1] .= $middle;
-        }
-        $content = implode('', $content_array);
-
-        return $content;
+        return implode('', $content_array);
     }
 }
 
